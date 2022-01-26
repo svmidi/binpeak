@@ -61,3 +61,40 @@ else:
 
 	with open(config_file, "w") as config_file:
 		config.write(config_file)
+
+if (not api_key or not secret_key) and not test:
+	print("Не указаны ключи доступа в файле {}. Доступны только тестовые данные.".format(config_file))
+	test = True
+elif ((api_key and secret_key) and not test) and get_list:
+	client = Client(api_key, secret_key)
+	exchange_info = client.get_exchange_info()
+	pairs = []
+	for pair in exchange_info['symbols']:
+		if (pair['symbol'][-4:] == 'USDT'):
+			pairs.append(pair['symbol'])
+	print(pairs)
+	print("Всего доступно пар:{}".format(len(pairs)))
+	sys.exit()
+
+def ols(data):
+	global percent_sort
+	betas = ['nd']
+	#print(data)
+	if percent_sort:
+		ln = len(data)
+		if ln > 1:
+			min_data = min(data)
+			betas = [((data[0] - min_data) / min_data * 100), 0]
+	else:
+		if len(data) > 1:
+			x = []
+			x.append(range(len(data)))                 #Time variable
+			x.append([1 for ele in range(len(data))]) #This adds the intercept, use range in Python3
+
+			y = np.matrix(data).T
+			x = np.matrix(x).T
+
+			betas = ((x.T*x).I*x.T*y)
+			betas = [betas.item(0), 0]
+
+	return betas
