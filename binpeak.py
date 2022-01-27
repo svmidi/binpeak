@@ -150,3 +150,37 @@ def show_top(data, period):
 		if (i >= top):
 			break
 	return text
+
+def get_top(data):
+	global top
+	global aldata
+	top_data = {}
+	i = 0
+
+	for coin in data:
+		i += 1
+		top_data[coin[0]] = aldata[coin[0]]
+		if (i >= top):
+			break
+	return top_data
+
+def make_plot(data, border, l, name):
+	df = pd.DataFrame(data)
+	x = np.arange(l)
+
+	plt.figure(figsize=(8, 4))
+	plt.axis([0, l, border[0], (border[1] + 30)])
+	plt.plot(x,df)
+	plt.legend(data, loc=2)
+	plt.savefig("/var/www/html/crypto/plots/tg-{}.png".format(name))
+	plt.close('all')
+
+def notification(coin, percent, period):
+	global notif_time
+	if percent > period:
+		if (coin not in notif_time) or ((int(time.time() - 120) > notif_time[coin])):
+			notif_time[coin] = int(time.time())
+			text = "Рост на {}% за период {}".format((round(percent, 2)), period)
+			notif.call(['notify-send', coin, text])
+			text = "{} https://www.binance.com/ru/trade/{}_USDT".format(text, coin)
+			
