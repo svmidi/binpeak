@@ -165,6 +165,7 @@ def get_top(data):
 	return top_data
 
 def make_plot(data, border, l, name):
+	global plots
 	df = pd.DataFrame(data)
 	x = np.arange(l)
 
@@ -172,7 +173,7 @@ def make_plot(data, border, l, name):
 	plt.axis([0, l, border[0], (border[1] + 30)])
 	plt.plot(x,df)
 	plt.legend(data, loc=2)
-	plt.savefig("/var/www/html/crypto/plots/tg-{}.png".format(name))
+	plt.savefig("{}tg-{}.png".format(plots, name))
 	plt.close('all')
 
 def notification(coin, percent, period):
@@ -183,4 +184,87 @@ def notification(coin, percent, period):
 			text = "Рост на {}% за период {}".format((round(percent, 2)), period)
 			notif.call(['notify-send', coin, text])
 			text = "{} https://www.binance.com/ru/trade/{}_USDT".format(text, coin)
+			#notify somehow 
+
 			
+text = ''
+aldata = {}
+olses = {}
+notif_time = {}
+
+for nc in ncoins:
+	aldata[nc] = []
+
+range30 = {}
+range60 = {}
+range180 = {}
+range300 = {}
+lendata = 0
+
+with output(initial_len=4, interval=0) as output_lines:
+	while True:
+		try:
+			cprices = get_coins()
+			for cprice in cprices:
+				if ncoins.count(cprice['symbol']):
+					aldata[cprice['symbol']].insert(0, float(cprice['price']))
+					lendata = len(aldata[cprice['symbol']])
+					if lendata > (int(300/delay) + 1):
+						aldata[cprice['symbol']].pop()
+
+					olsm = ols(aldata[cprice['symbol']][:(int(30/delay))])
+
+					if len(olsm) > 1:
+						range30[cprice['symbol']] = olsm[0]
+
+					olsm = ols(get_range(aldata[cprice['symbol']], (int(60/delay))))
+					if len(olsm) > 1:
+						range60[cprice['symbol']] = olsm[0]
+
+					olsm = ols(get_range(aldata[cprice['symbol']], (int(180/delay))))
+					if len(olsm) > 1:
+						range180[cprice['symbol']] = olsm[0]
+
+					olsm = ols(get_range(aldata[cprice['symbol']], (int(300/delay))))
+					if len(olsm) > 1:
+						range300[cprice['symbol']] = olsm[0]
+
+			if (range30):
+				output_lines[0] = "30 sec: {}".format(show_top(sort_ols(range30), 2.2))
+			else:
+				output_lines[0] = "30 sec: waiting data..."
+
+			if (range60):
+				output_lines[1] = " 1 min: {}".format(show_top(sort_ols(range60), 3))
+				
+				if plots:
+					data_top = get_top(sort_ols(range60))
+					name = 0
+					for coint in data_top:
+						border = sorted(data_top[coint])[::len(data_top[coint])-1]
+						l = len(data_top[coint])
+						dtp = {coint[:-4]:data_top[coint]}
+						make_plot(dtp, border, l, name)#coint[:-4])
+						name += 1
+			else:
+				percent = round((lendata / (int(60/delay))) * 100)
+				output_lines[1] = " 1 min: waiting data... ({}%)".format(percent)
+
+			if (range180):
+				output_lines[2] = " 3 min: {}".format(show_top(sort_ols(range180), 4))
+			else:
+				percent = round((lendata / (int(180/delay))) * 100)
+				output_lines[2] = " 3 min: waiting data... ({}%)".format(percent)
+
+			if (range300):
+				output_lines[3] = " 5 min: {}".format(show_top(sort_ols(range300), 5))
+			else:
+				percent = round((lendata / (int(300/delay))) * 100)
+				output_lines[3] = " 5 min: waiting data... ({}%)".format(percent)
+
+			time.sleep(delay)
+
+		except KeyboardInterrupt:
+			print("\n")
+			print("Bye")
+			sys.exit()
